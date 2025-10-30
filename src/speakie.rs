@@ -1,9 +1,9 @@
-struct BitStream<'a> {
+pub struct BitStream<'a> {
     buf: &'a [u8],
     bit_addr: usize,
 }
 
-struct Speakie {
+pub struct Speakie {
     energy: u16,
     period: u8,
     period_counter: u8,
@@ -14,7 +14,7 @@ struct Speakie {
 }
 
 impl<'a> BitStream<'a> {
-    fn new(buf: &'a [u8]) -> Self {
+    pub fn new(buf: &'a [u8]) -> Self {
         let bit_addr = 0;
         Self { buf, bit_addr }
     }
@@ -76,8 +76,20 @@ const CHIRP: [u8; 41] = [
 ];
 
 impl Speakie {
+    pub fn new() -> Self {
+        Self {
+            energy: 0,
+            period: 0,
+            period_counter: 0,
+            rand: 1,
+            k: [0; 10],
+            x: [0; 11],
+            u: [0; 11],
+        }
+    }
+
     /// Returns true on "stop" frame.
-    fn process_frame(&mut self, bs: &mut BitStream<'_>) -> bool {
+    pub fn process_frame(&mut self, bs: &mut BitStream<'_>) -> bool {
         let energy = bs.get_bits(4);
         if energy == 0 {
             self.energy = 0;
@@ -108,7 +120,7 @@ impl Speakie {
         energy == 0xf
     }
 
-    fn get_sample(&mut self) -> i16 {
+    pub fn get_sample(&mut self) -> i16 {
         let u10;
         if self.period != 0 {
             let chirp = CHIRP
