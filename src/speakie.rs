@@ -4,12 +4,23 @@ pub struct BitStream<'a> {
 }
 
 pub struct Speakie {
-    energy: u16,
-    period: u8,
+    last_params: Params,
+    new_params: Params,
+    // Result of interpolation
+    params: Params,
+    interp_minor: usize,
+    interp_major: i32,
     period_counter: u8,
     rand: u16,
-    k: [i16; 10],
     x: [i16; 11],
+}
+
+#[derive(Clone, Copy, Default, Debug)]
+struct Params {
+    energy: u16,
+    period: u8,
+    k: [i16; 10],
+    is_stop: bool,
 }
 
 impl<'a> BitStream<'a> {
@@ -75,99 +86,124 @@ const CHIRP: [u8; 52] = [
 impl Speakie {
     pub fn new() -> Self {
         Self {
-            energy: 0,
-            period: 0,
+            last_params: Params::default(),
+            new_params: Params::default(),
+            params: Params::default(),
+            interp_major: 0,
+            interp_minor: 0,
             period_counter: 0,
             rand: 1,
-            k: [0; 10],
             x: [0; 11],
         }
     }
 
     /// Returns true on "stop" frame.
     pub fn process_frame(&mut self, bs: &mut BitStream<'_>) -> bool {
-        let energy = bs.get_bits(4);
-        if energy == 0 {
-            self.energy = 0;
-            //println!("0");
-        } else if energy == 0xf {
-            self.energy = 0;
-            self.k = [0; 10];
-        } else {
-            self.energy = ENERGY[energy] as u16;
-            let repeat = bs.get_bits(1);
-            self.period = PERIOD[bs.get_bits(6)];
-            if repeat == 0 {
-                self.k[0] = K1[bs.get_bits(5)];
-                self.k[1] = K2[bs.get_bits(5)];
-                self.k[2] = K3[bs.get_bits(4)];
-                self.k[3] = K4[bs.get_bits(4)];
-                if self.period != 0 {
-                    self.k[4] = K5[bs.get_bits(4)];
-                    self.k[5] = K6[bs.get_bits(4)];
-                    self.k[6] = K7[bs.get_bits(4)];
-                    self.k[7] = K8[bs.get_bits(3)];
-                    self.k[8] = K9[bs.get_bits(3)];
-                    self.k[9] = K10[bs.get_bits(3)];
-                    // println!(
-                        // "{} {} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4}",
-                        // self.energy,
-                        // self.period,
-                        // self.k[0] as f64 * (1. / 512.),
-                        // self.k[1] as f64 * (1. / 512.),
-                        // self.k[2] as f64 * (1. / 512.),
-                        // self.k[3] as f64 * (1. / 512.),
-                        // self.k[4] as f64 * (1. / 512.),
-                        // self.k[5] as f64 * (1. / 512.),
-                        // self.k[6] as f64 * (1. / 512.),
-                        // self.k[7] as f64 * (1. / 512.),
-                        // self.k[8] as f64 * (1. / 512.),
-                        // self.k[9] as f64 * (1. / 512.),
-                    // );
-                } else {
-                    self.k[4..].fill(0);
-                    // println!(
-                    //     "{} {} {:.4} {:.4} {:.4} {:.4}",
-                    //     self.energy,
-                    //     self.period,
-                    //     self.k[0] as f64 * (1. / 512.),
-                    //     self.k[1] as f64 * (1. / 512.),
-                    //     self.k[2] as f64 * (1. / 512.),
-                    //     self.k[3] as f64 * (1. / 512.),
-                    // );
-                }
-            }
+        self.last_params = self.new_params;
+        self.new_params = Params::read(bs);
+        if self.last_params.inhibit_interp(&self.new_params) {
+            self.last_params = self.new_params;
         }
-        energy == 0xf
+        if self.last_params.period != 0 && self.new_params.energy == 0 {
+            self.new_params.k = self.last_params.k;
+        }
+        self.interp_major = 0;
+        self.interp_minor = 0;
+        self.new_params.is_stop
     }
 
     pub fn get_sample(&mut self) -> i16 {
+        if self.interp_minor == 0 {
+            self.interp_major = (self.interp_major + 1).min(8);
+            self.params = self
+                .last_params
+                .interpolate(&self.new_params, self.interp_major);
+            //println!("last_params = {:?}", self.last_params);
+            //println!("new_params = {:?}", self.new_params);
+            //println!("interp result = {:?} {}", self.params, self.interp_major);
+        }
+        self.interp_minor += 1;
+        // TODO: make rate adjustable
+        if self.interp_minor == 25 {
+            self.interp_minor = 0;
+        }
         let u10;
-        if self.period != 0 {
+        if self.params.period != 0 {
             let chirp = CHIRP
                 .get(self.period_counter as usize)
                 .cloned()
                 .unwrap_or_default() as i8;
-            u10 = (((chirp as i32) * (self.energy as i32)) >> 6) as i16;
+            u10 = (((chirp as i32) * (self.params.energy as i32)) >> 6) as i16;
             self.period_counter += 1;
-            if self.period_counter >= self.period {
+            if self.period_counter >= self.params.period {
                 self.period_counter = 0;
             }
         } else {
             self.rand = (self.rand >> 1) ^ if (self.rand & 1) != 0 { 0xb800 } else { 0 };
             u10 = if (self.rand & 1) != 0 {
-                self.energy as i16
+                self.params.energy as i16
             } else {
-                -(self.energy as i16)
+                -(self.params.energy as i16)
             };
         }
         let mut u = u10;
         for i in (0..10).rev() {
-            u -= ((self.k[i] as i32 * self.x[i] as i32) >> 9) as i16;
-            self.x[i + 1] = self.x[i] + ((self.k[i] as i32 * u as i32) >> 9) as i16;
+            u -= ((self.params.k[i] as i32 * self.x[i] as i32) >> 9) as i16;
+            self.x[i + 1] = self.x[i] + ((self.params.k[i] as i32 * u as i32) >> 9) as i16;
         }
         u = u.clamp(-16384, 16383);
         self.x[0] = u;
         u
+    }
+}
+
+impl Params {
+    fn read(bs: &mut BitStream<'_>) -> Self {
+        let mut params = Self::default();
+        let energy = bs.get_bits(4);
+        if energy == 0 {
+            params.energy = 0;
+        } else if energy == 0xf {
+            params.energy = 0;
+            params.is_stop = true;
+        } else {
+            params.energy = ENERGY[energy] as u16;
+            let repeat = bs.get_bits(1);
+            params.period = PERIOD[bs.get_bits(6)];
+            if repeat == 0 {
+                params.k[0] = K1[bs.get_bits(5)];
+                params.k[1] = K2[bs.get_bits(5)];
+                params.k[2] = K3[bs.get_bits(4)];
+                params.k[3] = K4[bs.get_bits(4)];
+                if params.period != 0 {
+                    params.k[4] = K5[bs.get_bits(4)];
+                    params.k[5] = K6[bs.get_bits(4)];
+                    params.k[6] = K7[bs.get_bits(4)];
+                    params.k[7] = K8[bs.get_bits(3)];
+                    params.k[8] = K9[bs.get_bits(3)];
+                    params.k[9] = K10[bs.get_bits(3)];
+                }
+            }
+        }
+        params
+    }
+
+    fn interpolate(&self, new_params: &Self, t: i32) -> Self {
+        fn lerp(x0: i32, x1: i32, t: i32) -> i32 {
+            (x0 * 8 + (x1 - x0) * t) / 8
+        }
+
+        Params {
+            energy: lerp(self.energy as i32, new_params.energy as i32, t) as u16,
+            period: lerp(self.period as i32, new_params.period as i32, t) as u8,
+            k: core::array::from_fn(|i| lerp(self.k[i] as i32, new_params.k[i] as i32, t) as i16),
+            is_stop: false,
+        }
+    }
+
+    fn inhibit_interp(&self, new_params: &Self) -> bool {
+        (self.period != 0) != (self.period != 0)
+            || (self.energy == 0 && new_params.energy != 0)
+            || (self.period == 0 && new_params.energy == 0)
     }
 }
