@@ -10,7 +10,6 @@ pub struct Speakie {
     rand: u16,
     k: [i16; 10],
     x: [i16; 11],
-    u: [i16; 11],
 }
 
 impl<'a> BitStream<'a> {
@@ -84,7 +83,6 @@ impl Speakie {
             rand: 1,
             k: [0; 10],
             x: [0; 11],
-            u: [0; 11],
         }
     }
 
@@ -129,7 +127,7 @@ impl Speakie {
                 .unwrap_or_default() as i8;
             u10 = (((chirp as i32) * (self.energy as i32)) >> 8) as i16;
             self.period_counter += 1;
-            if self.period_counter == self.period {
+            if self.period_counter >= self.period {
                 self.period_counter = 0;
             }
         } else {
@@ -140,15 +138,13 @@ impl Speakie {
                 -(self.energy as i16)
             };
         }
-        self.u[10] = u10;
+        let mut u = u10;
         for i in (0..10).rev() {
-            self.u[i] = self.u[i + 1] - ((self.k[i] as i32 * self.x[i] as i32) >> 15) as i16;
+            u -= ((self.k[i] as i32 * self.x[i] as i32) >> 15) as i16;
+            self.x[i + 1] = self.x[i] + ((self.k[i] as i32 * u as i32) >> 15) as i16;
         }
-        self.u[0] = self.u[0].clamp(-512, 511);
-        for i in (0..9).rev() {
-            self.x[i + 1] = self.x[i] + ((self.k[i] as i32 * self.u[i] as i32) >> 15) as i16;
-        }
-        self.x[0] = self.u[0];
-        self.u[0]
+        u = u.clamp(-512, 511);
+        self.x[0] = u;
+        u
     }
 }
