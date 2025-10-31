@@ -30,7 +30,9 @@ impl<'a> BitStream<'a> {
     }
 }
 
-const ENERGY: [u8; 0x10] = [0, 1, 2, 3, 4, 6, 8, 11, 16, 23, 33, 47, 63, 85, 114, 0];
+const ENERGY: [u16; 0x10] = [
+    0, 52, 87, 123, 174, 246, 348, 491, 694, 981, 1385, 1957, 2764, 3904, 5514, 7789,
+];
 const PERIOD: [u8; 0x40] = [
     0, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
     38, 39, 40, 41, 42, 44, 46, 48, 50, 52, 53, 56, 58, 60, 62, 65, 68, 70, 72, 76, 78, 80, 84, 86,
@@ -87,6 +89,7 @@ impl Speakie {
         let energy = bs.get_bits(4);
         if energy == 0 {
             self.energy = 0;
+            //println!("0");
         } else if energy == 0xf {
             self.energy = 0;
             self.k = [0; 10];
@@ -106,8 +109,32 @@ impl Speakie {
                     self.k[7] = K8[bs.get_bits(3)];
                     self.k[8] = K9[bs.get_bits(3)];
                     self.k[9] = K10[bs.get_bits(3)];
+                    // println!(
+                        // "{} {} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4} {:.4}",
+                        // self.energy,
+                        // self.period,
+                        // self.k[0] as f64 * (1. / 512.),
+                        // self.k[1] as f64 * (1. / 512.),
+                        // self.k[2] as f64 * (1. / 512.),
+                        // self.k[3] as f64 * (1. / 512.),
+                        // self.k[4] as f64 * (1. / 512.),
+                        // self.k[5] as f64 * (1. / 512.),
+                        // self.k[6] as f64 * (1. / 512.),
+                        // self.k[7] as f64 * (1. / 512.),
+                        // self.k[8] as f64 * (1. / 512.),
+                        // self.k[9] as f64 * (1. / 512.),
+                    // );
                 } else {
                     self.k[4..].fill(0);
+                    // println!(
+                    //     "{} {} {:.4} {:.4} {:.4} {:.4}",
+                    //     self.energy,
+                    //     self.period,
+                    //     self.k[0] as f64 * (1. / 512.),
+                    //     self.k[1] as f64 * (1. / 512.),
+                    //     self.k[2] as f64 * (1. / 512.),
+                    //     self.k[3] as f64 * (1. / 512.),
+                    // );
                 }
             }
         }
@@ -121,7 +148,7 @@ impl Speakie {
                 .get(self.period_counter as usize)
                 .cloned()
                 .unwrap_or_default() as i8;
-            u10 = (((chirp as i32) * (self.energy as i32)) >> 8) as i16;
+            u10 = (((chirp as i32) * (self.energy as i32)) >> 6) as i16;
             self.period_counter += 1;
             if self.period_counter >= self.period {
                 self.period_counter = 0;
@@ -139,7 +166,7 @@ impl Speakie {
             u -= ((self.k[i] as i32 * self.x[i] as i32) >> 9) as i16;
             self.x[i + 1] = self.x[i] + ((self.k[i] as i32 * u as i32) >> 9) as i16;
         }
-        u = u.clamp(-512, 511);
+        u = u.clamp(-16384, 16383);
         self.x[0] = u;
         u
     }

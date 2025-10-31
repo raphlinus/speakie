@@ -71,7 +71,7 @@ fn main() {
     while !speakie.process_frame(&mut bs) {
         for _ in 0..200 {
             let sample = speakie.get_sample();
-            writer.write_sample(sample * 64).unwrap();
+            writer.write_sample(sample * 2).unwrap();
         }
     }
     writer.finalize().unwrap();
