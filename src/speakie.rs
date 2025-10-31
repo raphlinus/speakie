@@ -1,5 +1,5 @@
-pub struct BitStream<'a> {
-    buf: &'a [u8],
+pub struct BitStream<T: AsRef<[u8]>> {
+    buf: T,
     bit_addr: usize,
 }
 
@@ -23,19 +23,20 @@ struct Params {
     is_stop: bool,
 }
 
-impl<'a> BitStream<'a> {
-    pub fn new(buf: &'a [u8]) -> Self {
+impl<T: AsRef<[u8]>> BitStream<T> {
+    pub fn new(buf: T) -> Self {
         let bit_addr = 0;
         Self { buf, bit_addr }
     }
 
     fn get_bits(&mut self, len: usize) -> usize {
+        let buf = self.buf.as_ref();
         let bit = self.bit_addr % 8;
         let byte_addr = self.bit_addr / 8;
         self.bit_addr += len;
-        let mut word = (self.buf[byte_addr].reverse_bits() as u16) << 8;
+        let mut word = (buf[byte_addr].reverse_bits() as u16) << 8;
         if bit + len > 8 {
-            word |= self.buf[byte_addr + 1].reverse_bits() as u16;
+            word |= buf[byte_addr + 1].reverse_bits() as u16;
         }
         ((word << bit) >> (16 - len)) as usize
     }
@@ -98,14 +99,11 @@ impl Speakie {
     }
 
     /// Returns true on "stop" frame.
-    pub fn process_frame(&mut self, bs: &mut BitStream<'_>) -> bool {
+    pub fn process_frame(&mut self, bs: &mut BitStream<impl AsRef<[u8]>>) -> bool {
         self.last_params = self.new_params;
-        self.new_params = Params::read(bs);
+        self.new_params.read(bs);
         if self.last_params.inhibit_interp(&self.new_params) {
             self.last_params = self.new_params;
-        }
-        if self.last_params.period != 0 && self.new_params.energy == 0 {
-            self.new_params.k = self.last_params.k;
         }
         self.interp_major = 0;
         self.interp_minor = 0;
@@ -128,7 +126,7 @@ impl Speakie {
             self.interp_minor = 0;
         }
         let u10;
-        if self.params.period != 0 {
+        if self.params.is_voiced() {
             let chirp = CHIRP
                 .get(self.period_counter as usize)
                 .cloned()
@@ -158,34 +156,34 @@ impl Speakie {
 }
 
 impl Params {
-    fn read(bs: &mut BitStream<'_>) -> Self {
-        let mut params = Self::default();
+    fn read(&mut self, bs: &mut BitStream<impl AsRef<[u8]>>) {
         let energy = bs.get_bits(4);
         if energy == 0 {
-            params.energy = 0;
+            self.energy = 0;
         } else if energy == 0xf {
-            params.energy = 0;
-            params.is_stop = true;
+            self.energy = 0;
+            self.is_stop = true;
         } else {
-            params.energy = ENERGY[energy] as u16;
+            self.energy = ENERGY[energy] as u16;
             let repeat = bs.get_bits(1);
-            params.period = PERIOD[bs.get_bits(6)];
+            self.period = PERIOD[bs.get_bits(6)];
             if repeat == 0 {
-                params.k[0] = K1[bs.get_bits(5)];
-                params.k[1] = K2[bs.get_bits(5)];
-                params.k[2] = K3[bs.get_bits(4)];
-                params.k[3] = K4[bs.get_bits(4)];
-                if params.period != 0 {
-                    params.k[4] = K5[bs.get_bits(4)];
-                    params.k[5] = K6[bs.get_bits(4)];
-                    params.k[6] = K7[bs.get_bits(4)];
-                    params.k[7] = K8[bs.get_bits(3)];
-                    params.k[8] = K9[bs.get_bits(3)];
-                    params.k[9] = K10[bs.get_bits(3)];
+                self.k[0] = K1[bs.get_bits(5)];
+                self.k[1] = K2[bs.get_bits(5)];
+                self.k[2] = K3[bs.get_bits(4)];
+                self.k[3] = K4[bs.get_bits(4)];
+                if self.period != 0 {
+                    self.k[4] = K5[bs.get_bits(4)];
+                    self.k[5] = K6[bs.get_bits(4)];
+                    self.k[6] = K7[bs.get_bits(4)];
+                    self.k[7] = K8[bs.get_bits(3)];
+                    self.k[8] = K9[bs.get_bits(3)];
+                    self.k[9] = K10[bs.get_bits(3)];
+                } else {
+                    self.k[4..].fill(0);
                 }
             }
         }
-        params
     }
 
     fn interpolate(&self, new_params: &Self, t: i32) -> Self {
@@ -201,9 +199,13 @@ impl Params {
         }
     }
 
+    fn is_voiced(&self) -> bool {
+        self.period != 0
+    }
+
     fn inhibit_interp(&self, new_params: &Self) -> bool {
-        (self.period != 0) != (self.period != 0)
+        self.is_voiced() != new_params.is_voiced()
             || (self.energy == 0 && new_params.energy != 0)
-            || (self.period == 0 && new_params.energy == 0)
+            || (!self.is_voiced() && new_params.energy == 0)
     }
 }
