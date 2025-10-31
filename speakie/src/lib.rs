@@ -1,8 +1,12 @@
+#![no_std]
+
+/// A source of LPC-10 encoded data.
 pub struct BitStream<T: AsRef<[u8]>> {
     buf: T,
     bit_addr: usize,
 }
 
+/// The main decoder object.
 pub struct Speakie {
     last_params: Params,
     new_params: Params,
@@ -85,6 +89,7 @@ const CHIRP: [u8; 52] = [
 ];
 
 impl Speakie {
+    /// Create a new decoder.
     pub fn new() -> Self {
         Self {
             last_params: Params::default(),
@@ -98,6 +103,11 @@ impl Speakie {
         }
     }
 
+    /// Process one frame.
+    ///
+    /// This method should be called at the start of each frame, which is 200 samples
+    /// at the nominal speech rate.
+    ///
     /// Returns true on "stop" frame.
     pub fn process_frame(&mut self, bs: &mut BitStream<impl AsRef<[u8]>>) -> bool {
         self.last_params = self.new_params;
@@ -110,6 +120,7 @@ impl Speakie {
         self.new_params.is_stop
     }
 
+    /// Get one sample.
     pub fn get_sample(&mut self) -> i16 {
         if self.interp_minor == 0 {
             self.interp_major = (self.interp_major + 1).min(8);
@@ -149,6 +160,7 @@ impl Speakie {
             u -= ((self.params.k[i] as i32 * self.x[i] as i32) >> 9) as i16;
             self.x[i + 1] = self.x[i] + ((self.params.k[i] as i32 * u as i32) >> 9) as i16;
         }
+        // TODO: maybe change this
         u = u.clamp(-16384, 16383);
         self.x[0] = u;
         u

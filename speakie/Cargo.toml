@@ -1,0 +1,12 @@
+[package]
+name = "speakie"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+authors.workspace = true
+description = "A decoder for LPC-10 audio"
+categories = ["multimedia::audio", "no-std"]
+keywords = ["lpc"]
+
+[dev-dependencies]
+hound = "3.5.1"

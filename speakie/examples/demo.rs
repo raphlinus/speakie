@@ -1,6 +1,4 @@
-use crate::speakie::{BitStream, Speakie};
-
-mod speakie;
+use speakie::{BitStream, Speakie};
 
 fn main() {
     let spec = hound::WavSpec {

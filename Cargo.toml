@@ -1,7 +1,7 @@
-[package]
-name = "speakie"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = ["speakie"]
+resolver = "3"
 
-[dependencies]
-hound = "3.5.1"
+[workspace.package]
+authors = ["Raph Levien <raph.levien@gmail.com>"]
+license = "Apache-2.0 OR MIT"
