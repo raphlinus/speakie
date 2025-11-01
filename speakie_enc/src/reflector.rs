@@ -41,7 +41,7 @@ impl Reflector {
             d[i + 1] = d[i] + self.ks[i] * y;
             d[i] = b[i];
         }
-        self.rms = d[11] / n_samples as f64 * 32768.0;
+        self.rms = d[11] / n_samples as f64;
     }
 
     pub fn is_unvoiced(&self) -> bool {
@@ -51,5 +51,9 @@ impl Reflector {
 
     pub fn ks(&self) -> &[f64] {
         &self.ks
+    }
+
+    pub fn rms(&self) -> f64 {
+        self.rms
     }
 }

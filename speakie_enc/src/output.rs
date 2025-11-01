@@ -67,6 +67,7 @@ impl Output {
 
     pub fn frame(&mut self, energy: f64, pitch: f64, ks: &[f64]) {
         let energy_code = quantize(&ENERGY, energy.round().min(5514.0) as u16);
+        //println!("{energy}->{energy_code} {pitch} {ks:.3?}");
         self.pack(energy_code, 4);
         if energy_code > 0 {
             self.pack(0, 1); // repeat

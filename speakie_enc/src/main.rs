@@ -47,10 +47,6 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
     let filtered = filter::lowpass(samples);
     for i in 0..n_frames {
         let base = i * FRAME_SIZE;
-        let raw_samples = (0..WINDOW_SIZE)
-            .map(|i| samples.get(base + i).cloned().unwrap_or_default())
-            .collect::<Vec<_>>();
-        let rms = raw_samples.iter().map(|x| x * x).sum::<f64>().sqrt();
         let filtered_slice = (0..WINDOW_SIZE)
             .map(|i| filtered.get(base + i).cloned().unwrap_or_default())
             .collect::<Vec<_>>();
@@ -59,11 +55,15 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
         let windowed = (0..WINDOW_SIZE)
             .map(|i| samples.get(base + i).cloned().unwrap_or_default() * hw[i])
             .collect::<Vec<_>>();
-        let reflector = Reflector::new(&windowed);
+        let preemphed = preemph(&windowed, alpha);
+        let reflector = Reflector::new(&preemphed);
+        let mut rms = reflector.rms();
         if reflector.is_unvoiced() {
             period = 0.0;
+            //reflector = Reflector::new(&windowed);
+            rms = reflector.rms() * 0.5;
         }
-        out.frame(0.01 * rms, period, reflector.ks());
+        out.frame(0.01 * rms, period, &reflector.ks()[1..]);
     }
     out.pack(15, 4);
     out.pack(0, 7);

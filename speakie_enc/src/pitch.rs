@@ -49,12 +49,21 @@ impl PitchEstimator {
         if dd == 0.0 {
             best_period as f64
         } else {
-            best_period as f64 + 0.5 * (right - left) / dd
+            let delta = 0.5 * (right - left) / dd;
+            if delta.abs() < 0.5 {
+                best_period as f64 + dd
+            } else {
+                best_period as f64
+            }
         }
     }
 
     pub fn estimate(&self) -> f64 {
         let best_period = self.best_period();
+        let best = self.coeffs[best_period];
+        if best < self.coeffs[best_period - 1] || best < self.coeffs[best_period + 1] {
+            return 0.0;
+        }
         let mut max_multiple = best_period / self.min_period;
         let estimate = self.interpolated(best_period);
         const SUB_MULTIPLE_THRESHOLD: f64 = 0.9;
