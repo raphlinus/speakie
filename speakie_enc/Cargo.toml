@@ -8,6 +8,6 @@ license.workspace = true
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
 hound = "3.5.1"
+iir_filters = "0.1.3"
 linear-predictive-coding = "0.4.0"
 ndarray = "0.16.1"
-pitch-detection = "0.3.0"
