@@ -1,0 +1,13 @@
+[package]
+name = "speakie_enc"
+version = "0.1.0"
+edition = "2024"
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+clap = { version = "4.5.51", features = ["derive"] }
+hound = "3.5.1"
+linear-predictive-coding = "0.4.0"
+ndarray = "0.16.1"
+pitch-detection = "0.3.0"

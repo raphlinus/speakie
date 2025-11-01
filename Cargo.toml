@@ -1,5 +1,5 @@
 [workspace]
-members = ["speakie"]
+members = ["speakie", "speakie_enc"]
 resolver = "3"
 
 [workspace.package]
