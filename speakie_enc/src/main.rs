@@ -6,8 +6,8 @@ use crate::{output::Output, pitch::PitchEstimator, reflector::Reflector};
 
 mod filter;
 mod output;
-mod reflector;
 mod pitch;
+mod reflector;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -38,7 +38,7 @@ fn main() {
 }
 
 const FRAME_SIZE: usize = 200;
-const WINDOW_SIZE: usize = 400;
+const WINDOW_SIZE: usize = 300;
 
 fn to_lpc(samples: &[f64]) -> Vec<u8> {
     let mut out = Output::default();
@@ -51,6 +51,10 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
             .map(|i| filtered.get(base + i).cloned().unwrap_or_default())
             .collect::<Vec<_>>();
         let mut period = PitchEstimator::new(&filtered_slice, 16, 160).estimate();
+        const VOICED_THRESH: f64 = 0.25;
+        if reflector::confidence(&filtered_slice, period.round() as usize) < VOICED_THRESH {
+            period = 0.0;
+        }
         let alpha = if period == 0.0 { 0.0 } else { 0.9375 };
         let windowed = (0..WINDOW_SIZE)
             .map(|i| samples.get(base + i).cloned().unwrap_or_default() * hw[i])
@@ -60,8 +64,9 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
         let mut rms = reflector.rms();
         if reflector.is_unvoiced() {
             period = 0.0;
-            //reflector = Reflector::new(&windowed);
-            rms = reflector.rms() * 0.5;
+        }
+        if period == 0.0 {
+            rms *= 0.25;
         }
         out.frame(0.01 * rms, period, &reflector.ks()[1..]);
     }

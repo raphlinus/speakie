@@ -4,14 +4,20 @@ pub struct Reflector {
     rms: f64,
 }
 
+fn get_correlation(buf: &[f64], lag: usize) -> f64 {
+    let mut sum = 0.0;
+    for i in 0..buf.len() - lag {
+        sum += buf[i] * buf[i + lag]
+    }
+    sum
+}
+
 fn get_correlations(buf: &[f64]) -> [f64; 11] {
-    core::array::from_fn(|lag| {
-        let mut sum = 0.0;
-        for i in 0..buf.len() - lag {
-            sum += buf[i] * buf[i + lag]
-        }
-        sum
-    })
+    core::array::from_fn(|lag| get_correlation(buf, lag))
+}
+
+pub fn confidence(buf: &[f64], period: usize) -> f64 {
+    get_correlation(buf, period) / get_correlation(buf, 0)
 }
 
 impl Reflector {
