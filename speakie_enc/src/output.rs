@@ -1,5 +1,3 @@
-use ndarray::Array1;
-
 #[derive(Default)]
 pub struct Output {
     buf: Vec<u8>,
@@ -67,7 +65,7 @@ impl Output {
         self.pack(code, table.len().trailing_zeros());
     }
 
-    pub fn frame(&mut self, energy: f64, pitch: f64, ks: Array1<f64>) {
+    pub fn frame(&mut self, energy: f64, pitch: f64, ks: &[f64]) {
         let energy_code = quantize(&ENERGY, energy.round().min(5514.0) as u16);
         self.pack(energy_code, 4);
         if energy_code > 0 {
