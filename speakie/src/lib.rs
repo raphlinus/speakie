@@ -88,6 +88,8 @@ const CHIRP: [u8; 52] = [
     0x00, 0x00, 0x00, 0x00,
 ];
 
+//const CHIRP2: [u8; 9] = [0x7f, 0x40, 0x20, 0x10, 0x8, 4, 2, 1, 0];
+
 impl Speakie {
     /// Create a new decoder.
     pub fn new() -> Self {
@@ -155,15 +157,15 @@ impl Speakie {
                 -(self.params.energy as i16)
             };
         }
-        let mut u = u10;
+        let mut u = u10 as i32;
         for i in (0..10).rev() {
-            u -= ((self.params.k[i] as i32 * self.x[i] as i32) >> 9) as i16;
-            self.x[i + 1] = self.x[i] + ((self.params.k[i] as i32 * u as i32) >> 9) as i16;
+            u = u.wrapping_sub((self.params.k[i] as i32).wrapping_mul(self.x[i] as i32) >> 9);
+            self.x[i + 1] = self.x[i].wrapping_add(((self.params.k[i] as i32 * u) >> 9) as i16);
         }
         // TODO: maybe change this
         u = u.clamp(-16384, 16383);
-        self.x[0] = u;
-        u
+        self.x[0] = u as i16;
+        u as i16
     }
 }
 
