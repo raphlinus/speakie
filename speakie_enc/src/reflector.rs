@@ -50,6 +50,8 @@ impl Reflector {
         self.rms = d[11] / n_samples as f64;
     }
 
+    // This is the criterion used by BlueWizard, but we use correlation instead.
+    #[allow(unused)]
     pub fn is_unvoiced(&self) -> bool {
         const UNVOICED_THRESHOLD: f64 = 0.3;
         self.ks[1] > UNVOICED_THRESHOLD
