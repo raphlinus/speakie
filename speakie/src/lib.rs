@@ -163,7 +163,7 @@ impl Speakie {
             self.x[i + 1] = self.x[i].wrapping_add(((self.params.k[i] as i32 * u) >> 9) as i16);
         }
         // TODO: maybe change this
-        u = u.clamp(-16384, 16383);
+        u = u.clamp(-32768, 32767);
         self.x[0] = u as i16;
         u as i16
     }
