@@ -72,6 +72,10 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
         // }
         if period == 0.0 {
             rms *= 0.25;
+        } else {
+            // Compensate for energy of chirp. Note: it would likely be more
+            // accurate to measure RMS energy of (truncated) chirp.
+            rms *= period as f64 * (1. / 60.);
         }
         out.frame(5. * rms, period, &reflector.ks()[1..]);
     }
