@@ -47,7 +47,7 @@ impl Reflector {
             d[i + 1] = d[i] + self.ks[i] * y;
             d[i] = b[i];
         }
-        self.rms = d[11] / n_samples as f64;
+        self.rms = (d[11] / n_samples as f64).sqrt();
     }
 
     // This is the criterion used by BlueWizard, but we use correlation instead.

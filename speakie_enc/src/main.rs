@@ -56,7 +56,7 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
             .map(|i| filtered.get(base + i).cloned().unwrap_or_default())
             .collect::<Vec<_>>();
         let mut period = PitchEstimator::new(&filtered_slice, 16, 160).estimate();
-        const VOICED_THRESH: f64 = 0.25;
+        const VOICED_THRESH: f64 = 0.35;
         if reflector::confidence(&filtered_slice, period.round() as usize) < VOICED_THRESH {
             period = 0.0;
         }
@@ -73,7 +73,7 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
         if period == 0.0 {
             rms *= 0.25;
         }
-        out.frame(0.01 * rms, period, &reflector.ks()[1..]);
+        out.frame(5. * rms, period, &reflector.ks()[1..]);
     }
     out.pack(15, 4);
     out.pack(0, 7);
