@@ -56,7 +56,7 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
             .map(|i| filtered.get(base + i).cloned().unwrap_or_default())
             .collect::<Vec<_>>();
         let mut period = PitchEstimator::new(&filtered_slice, 16, 160).estimate();
-        const VOICED_THRESH: f64 = 0.35;
+        const VOICED_THRESH: f64 = 0.2;
         if reflector::confidence(&filtered_slice, period.round() as usize) < VOICED_THRESH {
             period = 0.0;
         }
@@ -71,13 +71,13 @@ fn to_lpc(samples: &[f64]) -> Vec<u8> {
         // period = 0.0;
         // }
         if period == 0.0 {
-            rms *= 0.25;
+            rms *= 0.5;
         } else {
             // Compensate for energy of chirp. Note: it would likely be more
             // accurate to measure RMS energy of (truncated) chirp.
             rms *= period as f64 * (1. / 60.);
         }
-        out.frame(5. * rms, period, &reflector.ks()[1..]);
+        out.frame(4. * rms, period, &reflector.ks()[1..]);
     }
     out.pack(15, 4);
     out.pack(0, 7);

@@ -46,7 +46,7 @@ impl Args {
 
 fn main() {
     let args = Args::parse();
-    let lpc_encoded =args.get_hex().expect("error parsing hex");
+    let lpc_encoded = args.get_hex().expect("error parsing hex");
 
     let spec = hound::WavSpec {
         channels: 1,
