@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use clap::Parser;
 
-use crate::{output::Output, pitch::PitchEstimator, reflector::Reflector};
+use crate::{output::Output, reflector::Reflector};
 
 mod filter;
 mod output;
@@ -47,19 +47,16 @@ const WINDOW_SIZE: usize = 300;
 fn to_lpc(samples: &[f64]) -> Vec<u8> {
     let mut out = Output::default();
     let hw = hamming_window();
-    let n_frames = samples.len().div_ceil(FRAME_SIZE);
     let filtered = filter::lowpass(samples);
     let preemph = convolve(&samples);
-    for i in 0..n_frames {
+    let cfg = pitch::TrackConfig {
+        hop: FRAME_SIZE,
+        window: WINDOW_SIZE,
+        ..Default::default()
+    };
+    let periods = pitch::track(&filtered, &cfg);
+    for (i, &period) in periods.iter().enumerate() {
         let base = i * FRAME_SIZE;
-        let filtered_slice = (0..WINDOW_SIZE)
-            .map(|i| filtered.get(base + i).cloned().unwrap_or_default())
-            .collect::<Vec<_>>();
-        let mut period = PitchEstimator::new(&filtered_slice, 16, 160).estimate();
-        const VOICED_THRESH: f64 = 0.2;
-        if reflector::confidence(&filtered_slice, period.round() as usize) < VOICED_THRESH {
-            period = 0.0;
-        }
         //let alpha = if period == 0.0 { 0.0 } else { 0.9375 };
         let lpc_input = if period == 0.0 { samples } else { &preemph };
         let windowed = (0..WINDOW_SIZE)

@@ -16,10 +16,6 @@ fn get_correlations(buf: &[f64]) -> [f64; 11] {
     core::array::from_fn(|lag| get_correlation(buf, lag))
 }
 
-pub fn confidence(buf: &[f64], period: usize) -> f64 {
-    get_correlation(buf, period) / get_correlation(buf, 0)
-}
-
 impl Reflector {
     pub fn new(buf: &[f64]) -> Self {
         let coeffs = get_correlations(buf);
