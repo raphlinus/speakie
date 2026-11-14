@@ -51,7 +51,7 @@ impl PitchEstimator {
         } else {
             let delta = 0.5 * (right - left) / dd;
             if delta.abs() < 0.5 {
-                best_period as f64 + dd
+                best_period as f64 + delta
             } else {
                 best_period as f64
             }
